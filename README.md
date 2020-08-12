@@ -1,5 +1,5 @@
 # Zhen_LSE2020_dissertation
-The APEC.csv is the final dataset. I used API to access the online datasets of World bank, International Monetary Funds, Singapore statistics. The statistics of Taiwan is avaliable at http://statdb.dgbas.gov.tw/pxweb/Dialog/statfile1L.asp?lang=1&strList=L. However, this website did not provide the API. I collected data of Taiwan by 'searching and downloading'.
+The APEC.csv is the final dataset. I used API to access the online datasets of World bank, International Monetary Funds, Singapore statistics. The statistics of Taiwan is avaliable at http://statdb.dgbas.gov.tw/pxweb/Dialog/statfile1L.asp?lang=1&strList=L. However, 'Taiwan statistics' does not provide the API for developer, I had to collect the data of Taiwan by 'searching and downloading'.
 
 APEC2020.Rmd includes all codes that I used.
 
