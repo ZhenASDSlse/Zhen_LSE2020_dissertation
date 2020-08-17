@@ -1,0 +1,1021 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+######Appendix 2. Author's codes in .RMD file (via RStudio software)######
+
+
+---
+title:"2020 capstone project Zhen's codes in .RMD file (via RStudio software)"
+author: "Zhen Liu"
+date: "30 July 2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r, include=FALSE}
+#update.packages(ask = FALSE, checkBuilt = TRUE)
+#tinytex::tlmgr_update()
+options(tinytex.verbose = TRUE)
+```
+
+## R Markdown
+# install.packages('IMFData')
+# install.packages('WDI')
+```{r}
+library(IMFData)
+library(WDI)
+library(remotes)
+library(stargazer)
+library(MASS)
+library(class)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(dummies)
+library(fastDummies)
+library(stargazer)
+library(plyr)
+
+library(memisc)
+library(Hmisc)
+library(corrplot)
+# install_github('mingjerli/IMFData')
+# install_github('vincentarelbundock/WDI')
+```
+
+####First part: data collection with API 
+
+
+
+```{r}
+# tinytex::reinstall_tinytex()
+#```
+
+# availableDB <- DataflowMethod()
+# availableDB$DatabaseID
+# IFS.available.codes <- DataStructureMethod("IFS")
+# names(IFS.available.codes)
+# IFS.available.codes[[2]]
+# CodeSearch(IFS.available.codes, "CL_INDICATOR_IFS", "GDP")
+# IFS.available.codes[[2]]$CodeValue[which(IFS.available.codes[[2]]$CodeText=='Germany')]
+# IFS.available.codes[[2]]$CodeText[which(IFS.available.codes[[2]]$CodeValue=='GR')]
+# 
+# year <- 1990:2018
+# startdate <- "1989-12-31"
+# enddate <- "2018-12-31"
+# country <- 'Mexico'
+# 
+# 
+# # Convert country name to corresponding IMF code
+# country_code <- CodeSearch(IFS.available.codes, "CL_AREA_IFS", country)$CodeValue
+# queryfilter <- list(CL_FREQ='A', CL_AREA_IFS=country_code, CL_INDICATOR_IFS=c('NGDP_XDC'))
+# queryresult <- CompactDataMethod('IFS', queryfilter, startdate, enddate)$Obs[[1]]
+# dat <- data.frame(year=as.numeric(queryresult$@TIME_PERIOD), gdp=)
+# 
+
+# Principal Figures - Annual
+# search_field <- WDIsearch('gdp')
+# search_field <- WDIsearch('population growth')
+# Population growth (annual %), 
+# GDP per capita (current US$), 
+# GDP per capita growth (annual %), 
+# GDP per capita, PPP (current international $), 
+# GDP per capita, PPP annual growth (%)
+
+field <- c('SP.POP.GROW','NY.GDP.PCAP.CD', 'NY.GDP.PCAP.KD.ZG', 'NY.GDP.PCAP.PP.CD', 'NY.GDP.PCAP.KD.ZG')
+cty_dev0 <- c('CHN', 'IDN', 'MYS', 'MEX', 'PNG', 'PER', 'PHL',  'RUS', 'THA', 'VNM')
+cty_dev1 <- c('AUS', 'BRN', 'CAN', 'CHL', 'HKG', 'JPN', 'NZL', 'SGP', 'KOR', 'USA')
+cty <- c(cty_dev0, cty_dev1)
+dat <- WDI(indicator=field, country=cty, start=1989, end=2019)
+
+PFA <- data.frame(Countryname=dat$country,
+                  Countrycode=dat$iso2c,
+                  YEAR=dat$year, 
+                  GDPP=dat$NY.GDP.PCAP.CD, 
+                  GDPPG=dat$NY.GDP.PCAP.KD.ZG, 
+                  PPP=dat$NY.GDP.PCAP.PP.CD,
+                  POPG=dat$SP.POP.GROW,
+                  g=dat$SP.POP.GROW/c(0, dat$SP.POP.GROW[-length(dat$SP.POP.GROW)])-1)
+PFA <- subset(PFA, YEAR!=1989)
+
+# Human capital (Education) 
+search_field <- WDIsearch('enrollment')
+# School enrollment, primary (% gross)
+# School enrollment, secondary (% gross)
+# School enrollment, tertiary (% gross)
+field <- c('SE.PRM.ENRR', 'SE.SEC.ENRR', 'SE.TER.ENRR')
+dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+EDU <- data.frame(ERP=dat$SE.PRM.ENRR,
+                  ERS=dat$SE.SEC.ENRR,
+                  ERT=dat$SE.TER.ENRR)
+
+
+# Human capital (Health)
+search_field <- WDIsearch('life expectancy')
+search_field <- WDIsearch('government expenditure')
+
+# Life expectancy at birth, total (years)
+# Domestic general government health expenditure
+field <- c('SP.DYN.LE00.IN', 'SH.XPD.GHED.GE.ZS')
+dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+HEA <- data.frame(LEXT=dat$SP.DYN.LE00.IN,
+                  GEHT=dat$SH.XPD.GHED.GE.ZS)
+
+# Transportation
+search_field <- WDIsearch('railway')
+
+# Railways, passengers carried (million passenger-km)
+# Railways, goods transported (million ton-km)
+search_field <- WDIsearch('freight')
+# Air transport, freight (million ton-km)
+field <- c('IS.RRS.PASG.KM', 'IS.RRS.GOOD.MT.K6', 'IS.AIR.GOOD.MT.K1','IS.SHP.GOOD.TU')
+dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+TRA <- data.frame(RP=dat$IS.RRS.PASG.KM,
+                  RG=dat$IS.RRS.GOOD.MT.K6,
+                  AF=dat$IS.AIR.GOOD.MT.K1,
+                  CTP=dat$IS.SHP.GOOD.TU)
+
+
+# Telecommunication
+search_field <- WDIsearch('subscriptions')
+
+# Fixed line and mobile cellular subscriptions (per 100 people)
+# Fixed telephone subscriptions (per 100 people)
+# Mobile cellular subscriptions (per 100 people)
+search_field <- WDIsearch('internet')
+
+# Internet users (per 100 people)
+# field <- c('IT.TEL.TOTL.P2', 'IT.MLT.MAIN.P2', 'IT.CEL.SETS.P2', 'IT.NET.USER.P3')
+# dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+# TEL <- data.frame(ICTF=dat$IT.TEL.TOTL.P2,
+#                   ICTL=dat$IT.MLT.MAIN.P2,
+#                   ICTC=dat$IT.CEL.SETS.P2,
+#                   ICTI=dat$IT.NET.USER.P2)
+field <- c('IT.MLT.MAIN.P2', 'IT.CEL.SETS.P2')
+dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+TEL <- data.frame(ICTL=dat$IT.MLT.MAIN.P2,
+                  ICTC=dat$IT.CEL.SETS.P2)
+
+# Other variables
+search_field <- WDIsearch('stock')
+
+# Stock market capitalization to GDP (%)
+
+search_field <- WDIsearch('inflation')
+
+# Inflation, consumer prices (annual %)
+search_field <- WDIsearch('exports of goods and services')
+
+# Exports of goods and services (annual % growth)
+field <- c('GFDD.DM.01', 'FP.CPI.TOTL.ZG', 'NE.EXP.GNFS.KD.ZG')
+dat <- WDI(indicator=field, country=cty, start=1990, end=2019)
+OTH <- data.frame(INV=dat$GFDD.DM.01,
+                  INF=dat$FP.CPI.TOTL.ZG,
+                  EXG=dat$NE.EXP.GNFS.KD.ZG)
+OTH$DEV <- 0
+OTH$DEV[which(dat$iso2c %in% c('AU', 'BN', 'CA', 'CL', 'HK', 'JP', 'NZ', 'SG', 'KR', 'US'))] <- 1
+
+
+total_dat <- cbind(PFA, EDU, HEA, TRA, OTH)
+#####```
+
+####
+
+# Singapore education
+library(methods)
+edu_sg <- GET('https://data.gov.sg/api/action/datastore_search?resource_id=9dcdd20c-e24c-46a4-9044-cc2b2745a7fc') # Use API to connect to Singapore government database
+edu_sg_content <- content(edu_sg)$result
+
+record <- c()
+for(r in edu_sg_content$records){
+  record <- rbind(record, cbind(category=r$category,
+                                sex=r$sex,
+                                level_of_education=r$level_of_education,
+                                year=r$year,
+                                gross_enrolment_ratio=r$gross_enrolment_ratio))
+}
+record <- data.frame(record)
+ERP_sg <- subset(record, record$category=='GROSS ENROLMENT RATIO' & record$sex=='MF' & record$level_of_education=='PRIMARY EDUCATION')$gross_enrolment_ratio
+ERS_sg <- subset(record, record$category=='GROSS ENROLMENT RATIO' & record$sex=='MF' & record$level_of_education=='SECONDARY EDUCATION')$gross_enrolment_ratio
+ERT_sg <- subset(record, record$category=='GROSS ENROLMENT RATIO' & record$sex=='MF' & record$level_of_education=='TERTIARY EDUCATION')$gross_enrolment_ratio
+
+# Fill into the total dataset for Singapore education. Only available to year 1998
+idx <- which(total_dat$Countryname=='Singapore' & total_dat$YEAR<=1998)
+total_dat[idx,'ERP'] <- as.numeric(as.character(ERP_sg))
+idx <- which(total_dat$Countryname=='Singapore' & total_dat$YEAR<=1997) # Secondary and Tertiary education data only available up to 1997 for Singapore
+total_dat[idx,c('ERS', 'ERT')] <- cbind(as.numeric(as.character(ERS_sg)), as.numeric(as.character(ERT_sg)))
+
+write.csv(total_dat, '~/apec_data_collection.csv', row.names = F)
+####
+
+
+# APEC<-read.csv('C:/Users/pc/Documents/apec_data_collection.csv')
+
+```
+
+
+## Add ICT variables##
+```{r}
+#library(xlsx)
+# convert the wide format to the long format
+ICTTkeep <- read.csv('D:/documents/2020lsemodules/dissertation/July/ICTkeep.csv')
+keepAPEC <- list(unique(ICTTkeep$Countryname))
+#keepAPEC
+
+ICTT_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/ICTT.xlsx')
+ICTT_long <- gather(ICTT_wide, YEAR, ICTT, '2000':'2018', factor_key=TRUE)
+
+ICTM_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/ICTM.xlsx')
+
+ICTM_wide<-subset(ICTM_wide, ICTM_wide$Countryname %in% c("Australia","Brunei Darussalam","Canada","Chile","China","Hong Kong, China","Indonesia","Japan","Korea (Rep. of)","Malaysia","Mexico","New Zealand","Papua New Guinea","Peru","Philippines","Russian Federation","Singapore","Taiwan, Province of China","Thailand","United States","Viet Nam"))
+Countrycode_lst <- list(unique(ICTT$Countrycode))
+ICTM_wide[,"Countrycode"]  <- Countrycode_lst
+#ICTM_wide <- data.frame(ICTM_wide, Countrycode_lst)
+#ICTM_wide <- ICTM_wide[1:(length(ICTM_wide)-1)]
+ICTM_long <- gather(ICTM_wide, YEAR, ICTM, '2000':'2018', factor_key=TRUE)
+
+ICTM_long$Countryname <- replace(ICTM_long$Countryname , ICTM_long$Countryname =="Hong Kong, China", "Hong Kong SAR, China")
+ICTM_long$Countryname <- replace(ICTM_long$Countryname , ICTM_long$Countryname =="Korea (Rep. of)", "Korea, Rep.")
+ICTM_long$Countryname <- replace(ICTM_long$Countryname , ICTM_long$Countryname =="Taiwan, Province of China", "Taiwan, China")
+ICTM_long$Countryname <- replace(ICTM_long$Countryname , ICTM_long$Countryname =="Viet Nam", "Vietnam")
+
+
+
+ICTI_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/ICTI.xlsx')
+
+ICTI_wide<-subset(ICTI_wide, ICTI_wide$Countryname %in% c("Australia","Brunei Darussalam","Canada","Chile","China","Hong Kong, China","Indonesia","Japan","Korea (Rep. of)","Malaysia","Mexico","New Zealand","Papua New Guinea","Peru","Philippines","Russian Federation","Singapore","Taiwan, Province of China","Thailand","United States","Viet Nam"))
+
+ICTI_wide[,"Countrycode"]  <- Countrycode_lst
+ICTI_long <- gather(ICTI_wide, YEAR, ICTI, '2000':'2018', factor_key=TRUE)
+ICTI_long$Countryname <- replace(ICTI_long$Countryname , ICTI_long$Countryname =="Hong Kong, China", "Hong Kong SAR, China")
+ICTI_long$Countryname <- replace(ICTI_long$Countryname , ICTI_long$Countryname =="Korea (Rep. of)", "Korea, Rep.")
+ICTI_long$Countryname <- replace(ICTI_long$Countryname , ICTI_long$Countryname =="Taiwan, Province of China", "Taiwan, China")
+ICTI_long$Countryname <- replace(ICTI_long$Countryname , ICTI_long$Countryname =="Viet Nam", "Vietnam")
+
+
+ICTE_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/ICTE.xlsx')
+
+ICTE_wide<-subset(ICTE_wide, ICTE_wide$Countryname %in% c("Australia","Brunei Darussalam","Canada","Chile","China","Hong Kong, China","Indonesia","Japan","Korea (Rep. of)","Malaysia","Mexico","New Zealand","Papua New Guinea","Peru","Philippines","Russian Federation","Singapore","Taiwan, Province of China","Thailand","United States","Viet Nam"))
+
+ICTE_wide[,"Countrycode"]  <- Countrycode_lst
+ICTE_long <- gather(ICTE_wide, YEAR, ICTE, '2000':'2018', factor_key=TRUE)
+ICTE_long$Countryname <- replace(ICTE_long$Countryname , ICTE_long$Countryname =="Hong Kong, China", "Hong Kong SAR, China")
+ICTE_long$Countryname <- replace(ICTE_long$Countryname , ICTE_long$Countryname =="Korea (Rep. of)", "Korea, Rep.")
+ICTE_long$Countryname <- replace(ICTE_long$Countryname , ICTE_long$Countryname =="Taiwan, Province of China", "Taiwan, China")
+ICTE_long$Countryname <- replace(ICTE_long$Countryname , ICTE_long$Countryname =="Viet Nam", "Vietnam")
+
+
+
+ICT <- merge( ICTT_long, ICTM_long, by  = c("Countryname","Countrycode","YEAR"))
+ICT <- merge( ICT, ICTI_long, by  = c("Countryname","Countrycode","YEAR"))
+ICT <- merge( ICT, ICTE_long, by  = c("Countryname","Countrycode","YEAR"))
+```
+
+#Taiwan data
+```{r}
+tw_all <- read.csv('D:/documents/2020lsemodules/dissertation/July/TW_all.csv')
+APEC <- rbind(APEC,tw_all)
+
+APEC <- merge(APEC, ICT, by  = c("Countryname","Countrycode","YEAR"),all=T)
+```
+
+#CPT (Containers port traffic)
+```{r}
+cpt_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/CTP/CTP.xlsx')
+cpt_long <- gather(cpt_wide, YEAR, CPT, '1990':'2018', factor_key=TRUE)
+APEC <- merge(APEC, cpt_long, by  = c("Countryname","Countrycode","YEAR"),all=T)
+###```
+# write the final APEC dataset
+###```{r}
+APEC<-subset(APEC, APEC$YEAR!=2019)
+
+write.csv(APEC, 'D:/documents/2020lsemodules/dissertation/July/APEC.csv', row.names = F)
+```
+
+# reshape the data
+
+```{r}
+APEC<-read.csv('D:/documents/2020lsemodules/dissertation/July/APEC.csv')
+
+ggg_wide <- read_xlsx('D:/documents/2020lsemodules/dissertation/July/ggg.xlsx')
+ggg_long <- gather(ggg_wide, YEAR, ggg, '1990':'2018', factor_key=TRUE)
+APEC <- merge(APEC, ggg_long, by  = c("Countryname","Countrycode","YEAR"),all=T)
+APEC$ggg<- as.numeric(as.character(APEC$ggg))
+APEC$RP <- as.numeric(APEC$RP)
+APEC$RG <- as.numeric(APEC$RG)
+APEC$AF <- as.numeric(APEC$AF)
+APEC$CPT <- as.numeric(APEC$CPT)
+APEC$DEV <- as.factor(APEC$DEV)
+
+APEC$logit_g <- ifelse(APEC$ggg > 0, 1,0)
+names(APEC)[names(APEC) == "g"] <- "g_cal"
+names(APEC)[names(APEC) == "ggg"] <- "g"
+
+APEC$logCPT = log(APEC$CPT)
+APEC$logINV=log(APEC$INV)
+APEC$logINF=log(APEC$INF)
+APEC$logEXG=log(APEC$EXG)
+APEC$logPPP=log(APEC$PPP)
+APEC$logg=log(APEC$g)
+
+# replace the Inflation of Peru in 1990 with NA
+
+#library(naniar)
+#APEC <- APEC %>% replace_with_na(condition = ~.INF > 7481)
+APEC$INF[APEC$INF >100 ] <- NA
+#APEC$log_cpt <- log(APEC$CPT)
+
+APEC$numDEV <- as.numeric(APEC$DEV)
+APEC$numDEV <- ifelse(APEC$numDEV ==2, 1,0)
+
+APEC$devICTI <- APEC$ICTI*APEC$numDEV
+```
+# read in the dataset
+```{r}
+APEC<-read.csv('D:/documents/2020lsemodules/dissertation/July/APEC.csv')
+```
+
+
+####2nd part: descriptive data
+
+
+# create the appendix1. Information of APEC counrties
+```{r}
+library(dplyr)
+app1 <- APEC[APEC$YEAR == 2018,]
+app1 %>% select(Countryname,Countrycode,numDEV)
+table(APEC$Countryname,APEC$Countrycode, APEC$DEV)
+
+```
+
+
+# descriptive data
+```{r}
+library(plm)
+APECP <- pdata.frame(APEC, index=c("Countrycode","YEAR"))
+
+trans_cols<- c('RP','RG','AF','CPT')
+APECP$RP <- as.numeric(APECP$RP)
+APECP$RG <- as.numeric(APECP$RG)
+APECP$AF <- as.numeric(APECP$AF)
+APECP$CPT <- as.numeric(APECP$CPT)
+APECP$DEV <- as.factor(APECP$DEV)
+#APECP$ggg<- as.numeric(as.character(APECP$ggg))
+                        
+###summarise the data
+
+
+APECPded <- subset(APECP, APECP$DEV == 1)
+APECPding <- subset(APECP, APECP$DEV == 0)
+
+cols <- c('PPP','g','ERP','ERS','ERT','LEXT','GEHT','POPG','RP','RG','AF','CPT','INV','INF','EXG','ICTT','ICTM','ICTI','ICTE')
+stargazer(
+  APECPded[,cols], APECPding[,cols],
+  type = "text", 
+  summary.stat = c("min", "p25", "median", "p75", "max", "mean", "sd"),
+  title=c("Descriptive statistics APEC developed countries","Descriptive statistics APEC developing countries")
+)
+```
+
+###correlations
+# x is a matrix containing the data# method : correlation method. "pearson"" or "spearman"" is supported
+# removeTriangle : remove upper or lower triangle
+# results :  if "html" or "latex"
+```{r}
+  # the results will be displayed in html or latex format
+corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
+                     result=c("none", "html", "latex")){
+    #Compute correlation matrix
+    require(Hmisc)
+    x <- as.matrix(x)
+    correlation_matrix<-rcorr(x, type=method[1])
+    R <- correlation_matrix$r # Matrix of correlation coeficients
+    p <- correlation_matrix$P # Matrix of p-value 
+    
+    ## Define notions for significance levels; spacing is important.
+    mystars <- ifelse(p < .0001, "****", ifelse(p < .001, "*** ", ifelse(p < .01, "**  ", ifelse(p < .05, "*   ", "    "))))
+    
+    ## trunctuate the correlation matrix to two decimal
+    R <- format(round(cbind(rep(-1.11, ncol(x)), R), 2))[,-1]
+    
+    ## build a new matrix that includes the correlations with their apropriate stars
+    Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
+    diag(Rnew) <- paste(diag(R), " ", sep="")
+    rownames(Rnew) <- colnames(x)
+    colnames(Rnew) <- paste(colnames(x), "", sep="")
+    
+    ## remove upper triangle of correlation matrix
+    if(removeTriangle[1]=="upper"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove lower triangle of correlation matrix
+    else if(removeTriangle[1]=="lower"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[lower.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove last column and return the correlation matrix
+    Rnew <- cbind(Rnew[1:length(Rnew)-1])
+    if (result[1]=="none") return(Rnew)
+    else{
+      if(result[1]=="html") print(xtable(Rnew), type="html")
+      else print(xtable(Rnew), type="latex") 
+    }
+} 
+```
+
+# use corrplot() to create the correlation matrix
+
+```{r}
+
+corzhen1<- select(APECP,PPP,g,RP,RG,AF,CPT, ICTT,ICTM,ICTI,ICTE,  POPG, ERP,ERS,ERT,LEXT,GEHT,  INV,logINF,EXG)
+library(Hmisc)
+
+
+corzhen2 <- rcorr(as.matrix(corzhen1),type = c("pearson","spearman"))
+
+#corzhen2
+#corzhen3=data.frame(corzhen2$r)
+mcor<-round(cor(corzhen1,use="complete.obs"),2)
+
+upper.tri(mcor, diag = FALSE)
+upper<-mcor
+upper[upper.tri(mcor)]<-""
+upper<-as.data.frame(upper)
+upper
+
+corrplot(mcor,type = "lower",  tl.col="black", tl.srt=45 )
+
+
+# Insignificant correlation are crossed
+corrplot(corzhen2$r, type="lower", 
+         p.mat = corzhen2$P, sig.level = 0.05, insig = "blank",tl.col="black", tl.srt=45)
+
+
+
+```
+###more discriptions
+##Heterogeniety across countries
+```{r}
+library(tidyverse) # Modern data science library 
+library(plm)       # Panel data analysis library
+library(car)       # Companion to applied regression 
+library(gplots)    # Various programing tools for plotting data
+library(tseries)   # For timeseries analysis
+library(lmtest)    # For hetoroskedasticity analysis
+plotmeans(PPP ~ Countrycode, data = APECPded)
+plotmeans(PPP ~ Countrycode, data = APECPding)
+library(ggplot2)
+library(reshape2)
+
+ggplot(APECP,aes(x=Countrycode,y=PPP,colour=DEV,group=Countrycode)) + geom_boxplot()
+
+ggplot(APECP,aes(x=YEAR,y=PPP,colour=Countrycode,group=Countrycode)) +geom_line()+stat_summary(aes(group = DEV),fun = "median", geom = "line", size = 1.5)+ labs(title="economic performance in all APEC countries, with the median lines of two groups", x ="Year", y = "GDP-PPP")
+#ggplot(APECP,aes(x=YEAR,y=g,colour=Countryname,group=Countryname)) +geom_line()+stat_summary(aes(group = DEV),fun = "median", geom = "line", size = 1.5) + scale_y_log10( breaks = c(10, 100) )
+ggplot(APECP,aes(x=YEAR,y=g,colour=Countrycode,group=Countrycode)) +geom_line()+stat_summary(aes(group = DEV),coulour=DEV,fun = "median", geom = "line", size = 1.5)+ labs(title="economic growth in all APEC countries, with the median lines of two groups", x ="Year", y = "g")
+
+ggplot(APECP,aes(x=YEAR,y=g,colour=DEV,group=DEV)) + geom_smooth()  + labs(title="smoothing line of g in developed and developing group", x ="Year", y = "growth rate g")
+
+ggplot(APECP,aes(x=YEAR,y=PPP,colour=DEV,group=DEV)) + geom_smooth(aes(group = DEV), size = 2, se = FALSE) + labs(title="Average number of GDP-PPP in developed and developing group", x ="Year", y ="Average number of GDP-PPP")
+
+#ggplot(APECP, aes(x = YEAR, y = log(g))) +  geom_boxplot(position = position_dodge(width = 0.9)) +  stat_summary(fun.y = median,    geom = 'line',    aes(group = DEV, colour = DEV),position = position_dodge(width = 0.9) )
+
+ggplot(APECP,aes(x=YEAR,y=PPP,fill=DEV)) + geom_boxplot() + labs(title="Boxplot of GDP-PPP in developed and developing group", x ="Year", y ="Distribution of the GDP-PPP") +stat_summary(fun = "median", geom = "line", color = "green",size = 1)
+
+ggplot(APECP,aes(x=YEAR,y=g,fill=DEV)) + geom_boxplot() + labs(title="Boxplot of g, growth rate of PPP, in developed and developing group", x ="Year", y ="Distribution of g, the growth rate of PPP") +stat_summary(fun = "median", geom = "line", color = "green",size = 1)
+ggplot(APECP,aes(x=YEAR,y=CPT,fill=DEV)) + geom_boxplot() + labs(title="Boxplot of CPT in developed and developing group", x ="Year", y ="Distribution of the CPT") +stat_summary(fun = "median", geom = "line", color = "green",size = 1)
+
+
+#ggplot(APECP,aes(x=YEAR,y=INF)) + geom_boxplot() + labs(title="Boxplot of Inflation", x ="Year", y ="Distribution of the Inflation") +stat_summary(fun = "median", geom = "line", color = "green",size = 1)
+ggplot(APECP,aes(x=g,y=ICTI,colour=DEV)) + geom_point() + geom_smooth(span=1)+ labs(title="Number of broadband users (per 100 inhabitants) by growth rate (by group)", x ="g, growth rate of the per capita, GDP", y ="ICTI, Number of broadband users (per 100 inhabitants)")
+
+```
+
+
+####3rd part: OLS regressions + instrumental variable
+
+### pooled OLS
+```{r}
+model1 <- lm(g ~ RP+RG+AF+logCPT+ ICTT+ICTM+ICTI+ICTE + ERP+ERS+ERT+LEXT +POPG +INV+logINF+EXG +DEV, data = APEC)
+summary(model1)
+
+
+
+# stepwise selection
+library(MASS)
+# Fit the full model 
+model.full <- lm(g ~   RP+RG+AF+logCPT+        ICTT+ICTM+ICTI+ICTE +        ERP+ERS+ERT+LEXT      +POPG +INV+logINF+EXG +DEV, data = na.omit(APEC))
+
+# Stepwise regression model
+#backward.model <- stepAIC(full.model, direction = 'backward', trace = FALSE)
+#summary(backward.model)
+
+# Model 2
+model2 <- stepAIC(model.full, direction = 'backward')
+summary(model2)
+improved.model1<- lm(g ~      RP+logCPT        + ICTI      + ERP+LEXT              +POPG+logINF+EXG+DEV, data = APEC)
+summary(improved.model1)
+
+
+```
+
+###Model 1, model 2, model 3 OLS
+```{r}
+
+model3<- lm(g ~      RP+RG+AF+logCPT        + ICTI      + ERP+LEXT       +POPG+logINF+EXG+DEV   +devICTI, data = APEC)
+summary(model3)
+
+stargazer(model1,model2,improved.model1,model3, align=TRUE,
+          
+          
+          title="Compare OLS models", 
+          dep.var.labels   = "g, growth rate of the per capita GDP (PPP)",
+          column.labels=c("model1","model2","improved.model1","model3"), 
+          covariate.labels=c("Railways, passengers carried (million passenger-km)","Railways, goods transported (million ton-km)","Air transport, freight (million ton-km)","log of Container port traffic (TEU: 20 foot equivalent units)", "subscriptions for fixed telephone (per 100 inhabitants)","subscriptions for mobile phone (per 100 inhabitants)","Number of BROADBAND users (per 100 inhabitants)","Percentage of Individuals using the Internet","Enrolment rate (%gross), primary","Enrolment rate (%gross), secondary","Enrolment rate (%gross), tertiary","Life expectancy at birth, total (years)","Population growth rate (annual %)","Ratio of real investment to GDP","inflation rate (log)","Volume of exports of goods and services (annual % growth)","Development status","ICTI*DEV"),
+          type = "text"
+         )
+```
+
+
+
+# instrumental variables
+```{r}
+library(AER)
+#iv test - APEC 
+iv<- ivreg(g~ ICTI + RP+RG+AF+logCPT + ERP+LEXT       +POPG+logINF+EXG+DEV   +devICTI|   ERS+ RP+RG+AF+logCPT + ERP+LEXT       +POPG+logINF+EXG+DEV   +devICTI, data = APEC )
+#first stage of estimation - developed 
+firststage_iv <- lm(ICTI ~ ERS+ RP+RG+AF+logCPT + ERP+LEXT       +POPG+logINF+EXG+DEV   +devICTI,  data = APEC)
+
+
+#put the four regressions in one table
+stargazer(iv, firststage_iv,model3,
+          title="IV-tests", 
+          dep.var.labels   = c("g","ICTI","g"),
+          column.labels=c("IV test","first stage of IV test","model3"), 
+          covariate.labels=c("Number of BROADBAND users (per 100 inhabitants)","Enrolment rate (%gross), secondary","Railways, passengers carried (million passenger-km)","Railways, goods transported (million ton-km)","Air transport, freight (million ton-km)","log of Container port traffic (TEU: 20 foot equivalent units)", "Enrolment rate (%gross), primary","Life expectancy at birth, total (years)","Population growth rate (annual %)","Ratio of real investment to GDP","inflation rate (log)","Volume of exports of goods and services (annual % growth)","Development status","ICTI*DEV"),
+          type = "text"
+         )
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+####fourth part,  mixed-effect model + logistic mixed-effect model
+
+
+###Random effect
+```{r}
+library(lme4)
+library(nlme)
+library(lmerTest)
+library(reshape2)
+total_dat_orig <- read.csv('D:/documents/2020lsemodules/dissertation/July/APEC.csv', header=T)
+total_dat_orig$logPPP <- log(total_dat_orig$PPP)
+total_dat <- total_dat_orig
+for(i in c(6,9:20, 22:26))
+  total_dat[,i] <- scale(as.numeric(total_dat_orig[,i]))
+total_dat$YEAR <- total_dat_orig$YEAR-1989
+# base model
+lb1 <- lm(g~DEV*YEAR,data = total_dat,na.action=na.omit)
+lb2 <- lmer(g~DEV*YEAR+(1|Countrycode), data = total_dat,na.action=na.omit, REML=F)
+#Random intercept with fixed mean.
+summary(lb2)
+lb3 <- lmer(g~DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit, REML=F)
+#Correlated random intercept and slope.
+summary(lb3)
+AIC(lb1, lb2, lb3)
+
+```
+## manual function that will allow us to insert new rows at various points in a data frame
+```{r}
+insertrow <- function(existingDF, newrow, r) {
+ existingDF[seq(r+1,nrow(existingDF)+1),] <- existingDF[seq(r,nrow(existingDF)),]
+ existingDF[r,] <- newrow
+ existingDF
+}
+```
+
+# covariates selection
+
+```{r}
+eff <- c()
+random_effect <-unique(data.frame(cty=total_dat$Countrycode))
+l<-NA
+l <- lmer(logPPP~DEV*ERP+DEV*YEAR+(ERP+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+l2 <- lm(logPPP~DEV*ERP+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ERP', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ERP=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*ERS+DEV*YEAR+(ERS+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+l2 <- lm(logPPP~DEV*ERS+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ERS', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ERS=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*ERT+DEV*YEAR+(ERT+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*ERT+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ERT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ERT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*LEXT+DEV*YEAR+(LEXT+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*LEXT+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='LEXT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(LEXT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*GEHT+DEV*YEAR+(GEHT+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*GEHT+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='GEHT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(GEHT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*RP+DEV*YEAR+(RP+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+l2 <- lm(logPPP~DEV*RP+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='RP', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(RP=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*RG+DEV*YEAR+(RG+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*RG+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='RG', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(RG=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*AF+DEV*YEAR+(AF+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*AF+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='AF', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(AF=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*INV+DEV*YEAR+(INV+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*INV+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='INV', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(INV=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*INF+DEV*YEAR+(INF+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*INF+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='INF', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(INF=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+
+l <- lmer(logPPP~DEV*EXG+DEV*YEAR+(EXG+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+l2 <- lm(logPPP~DEV*EXG+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='EXG', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(EXG=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+l <- lmer(logPPP~DEV*ICTT+DEV*YEAR+(ICTT+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+eff<- rbind(eff, cbind(var='ICTT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ICTT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+l <- lmer(logPPP~DEV*ICTM+DEV*YEAR+(ICTM+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*ICTM+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ICTM', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ICTM=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+l <- lmer(logPPP~DEV*ICTI+DEV*YEAR+(ICTI+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*ICTI+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ICTI', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ICTI=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+l <- lmer(logPPP~DEV*ICTE+DEV*YEAR+(ICTE+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*ICTE+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='ICTE', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(ICTE=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+l<-NA
+l <- lmer(logPPP~DEV*CPT+DEV*YEAR+(CPT+YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+l2 <- lm(logPPP~DEV*CPT+DEV*YEAR, data = total_dat,na.action=na.omit)
+eff<- rbind(eff, cbind(var='CPT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+ran <- cbind(CPT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+
+write.csv(eff,'D:/documents/2020lsemodules/dissertation/July/main.csv')
+for (i in 2:17)
+  random_effect[,i] <- round(as.numeric(random_effect[,i]), 0.1)
+write.csv(random_effect,'D:/documents/2020lsemodules/dissertation/July/main_random.csv')
+
+colMeans(random_effect[2:17]>0, na.rm=T)
+# 
+# # ERP RP RG INF ICTM CPT are significant. Run stepwise model selection
+# # Remove BN
+# total_dat2 <- subset(total_dat, total_dat$Countrycode!='BN')
+# eff <- c()
+# random_effect <-unique(data.frame(cty=total_dat2$Countrycode))
+# l<-NA
+# l <- lmer(logPPP~DEV*ERP+DEV*YEAR+(ERP+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F, 
+#           control = lmerControl(optimizer ="Nelder_Mead"))
+# l2 <- lm(logPPP~DEV*ERP+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ERP', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ERP=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ERS+DEV*YEAR+(ERS+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F, 
+#           control = lmerControl(optimizer ="Nelder_Mead"))
+# l2 <- lm(logPPP~DEV*ERS+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ERS', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ERS=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ERT+DEV*YEAR+(ERT+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*ERT+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ERT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ERT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*LEXT+DEV*YEAR+(LEXT+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*LEXT+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='LEXT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(LEXT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*GEHT+DEV*YEAR+(GEHT+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*GEHT+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='GEHT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(GEHT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*RP+DEV*YEAR+(RP+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F, 
+#           control = lmerControl(optimizer ="Nelder_Mead"))
+# l2 <- lm(logPPP~DEV*RP+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='RP', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(RP=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*RG+DEV*YEAR+(RG+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*RG+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='RG', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(RG=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*AF+DEV*YEAR+(AF+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*AF+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='AF', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(AF=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*INV+DEV*YEAR+(INV+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*INV+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='INV', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(INV=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*INF+DEV*YEAR+(INF+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*INF+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='INF', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(INF=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*EXG+DEV*YEAR+(EXG+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F, 
+#           control = lmerControl(optimizer ="Nelder_Mead"))
+# l2 <- lm(logPPP~DEV*EXG+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='EXG', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(EXG=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ICTT+DEV*YEAR+(ICTT+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# eff<- rbind(eff, cbind(var='ICTT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ICTT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ICTM+DEV*YEAR+(ICTM+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*ICTM+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ICTM', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ICTM=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ICTI+DEV*YEAR+(ICTI+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*ICTI+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ICTI', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ICTI=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*ICTE+DEV*YEAR+(ICTE+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*ICTE+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='ICTE', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(ICTE=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# l<-NA
+# l <- lmer(logPPP~DEV*CPT+DEV*YEAR+(CPT+YEAR|Countrycode), data = total_dat2,na.action=na.omit,REML=F)
+# l2 <- lm(logPPP~DEV*CPT+DEV*YEAR, data = total_dat2,na.action=na.omit)
+# eff<- rbind(eff, cbind(var='CPT', summary(l)$coeff[c(3,5),c(1,5)], summary(l2)$coef[c(3,5),c(1,4)]))
+# ran <- cbind(CPT=coef(l)[[1]][,3], cty=row.names(coef(l)[[1]]))
+# random_effect <- merge(random_effect, ran, by='cty', all.x=T)
+# 
+# write.csv(eff,'C://Users/I0392169/Desktop/main_noBN.csv')
+# for (i in 2:17)
+#   random_effect[,i] <- round(as.numeric(random_effect[,i]), 2)
+# write.csv(random_effect,'C://Users/I0392169/Desktop/main_random_noBN.csv')
+
+no.na <- na.omit(total_dat[,c('Countrycode','YEAR','ERP','RG', 'AF', 'INV','ICTT','ICTM','logPPP','DEV' )])
+fm <- lmer(logPPP~DEV*ERP+DEV*RG+DEV*AF+DEV*INV+DEV*ICTT+DEV*ICTM+
+             (YEAR+ERP+RG+AF+INV+ICTT+ICTM|Countrycode),
+           data = no.na,REML=F)
+step_res <- step(fm,alpha.fixed=.1)
+final <- get_model(step_res)
+summary(fm)
+# l <- lmer(logPPP~DEV*ERP+DEV*RG+DEV*YEAR+(YEAR+ERP+RG|Countrycode), data = total_dat,na.action=na.omit)
+# summary(l) # RG significant
+# l <- lmer(logPPP~DEV*RG+DEV*AF+DEV*YEAR+(YEAR+AF+RG|Countrycode), data = total_dat,na.action=na.omit)
+# summary(l) # AF not significant
+# l <- lmer(logPPP~DEV*RG+DEV*INV+DEV*YEAR+(YEAR+INV+RG|Countrycode), data = total_dat,na.action=na.omit)
+# summary(l) # INV is significant
+# l <- lmer(logPPP~DEV*RG+DEV*INV+DEV*ICTT+DEV*YEAR+(YEAR+INV+ICTT+RG|Countrycode), data = total_dat,na.action=na.omit)
+# summary(l) # ICTT no longer significant
+# l <- lmer(logPPP~DEV*RG+DEV*INV+DEV*ICTM+DEV*YEAR+(YEAR+INV+ICTM+RG|Countrycode), data = total_dat,na.action=na.omit)
+# summary(l)
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*RG+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # RG not significant
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*GEHT+DEV*INV+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # INV not significant 
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*GEHT+DEV*INF+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # INF not significant
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*GEHT+DEV*ICTT+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # ICTT is significant
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*GEHT+DEV*ICTT+DEV*ICTM+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # ICTM is significant
+# l <- lmer(PPP~DEV*ERS+DEV*GEHT+DEV*GEHT+DEV*ICTT+DEV*ICTM+DEV*CPT+DEV*YEAR+(YEAR|Countrycode), data = total_dat,na.action=na.omit,REML=F)
+# summary(l) # CPT is significant ICTM interaction term no longer significant
+# Final model:
+
+summary(final)
+
+write.csv(summary(final)$coeff[,c(1,5)],'D:/documents/2020lsemodules/dissertation/July/final.csv')
+write.csv(coef(final)[[1]],'D:/documents/2020lsemodules/dissertation/July/final_random.csv')
+
+scale <- c()
+for(i in c(6, 10, 12, 22, 23, 26)){
+  scale <- rbind(scale, c(Variable=names(total_dat)[i], scale=attributes(total_dat[,i])$`scaled:scale`,center=attributes(total_dat[,i])$`scaled:center`))
+}
+write.csv(scale,'D:/documents/2020lsemodules/dissertation/July/scale.csv')
+
+# Interpretation: Use ERS as example
+# Coefficient for ERS=7.837e-04, Coefficient for DEV:ERS=3.566e-01
+scale <- c()
+for(i in c(15, 16, 18, 22, 23, 26)){
+  scale <- rbind(scale, c(Variable=names(total_dat)[i], scale=attributes(total_dat[,i])$`scaled:scale`,center=attributes(total_dat[,i])$`scaled:center`))
+}
+write.csv(scale,'D:/documents/2020lsemodules/dissertation/July/scale.csv')
+
+attributes(total_dat$PPP) # PPP scale is 19852.93
+attributes(total_dat$ERS) # ERS scale is 22.10138 
+
+random <- coef(l)[[1]][,c('(Intercept)', 'YEAR')]
+write.csv(random,'D:/documents/2020lsemodules/dissertation/July/random.csv')
+
+```
+
+####5th part, missing data imputation
+
+Missing data imputation
+```{r}
+miss<-c()
+for(i in 1:ncol(total_dat_orig))
+  miss <- c(miss, mean(is.na(total_dat_orig[,i])))
+miss <- rbind(names(total_dat_orig), miss)
+write.csv(miss,'D:/documents/2020lsemodules/dissertation/July/miss.csv')
+
+
+# Impute missing using country mean
+total_dat_orig <- read.csv('D:/documents/2020lsemodules/dissertation/July/APEC.csv', header=T)
+total_dat_orig$logPPP <- log(total_dat_orig$PPP)
+# Impute by mean
+total_dat <- c()
+for(yr in total_dat_orig$YEAR){
+  dat_sub <- subset(total_dat_orig, total_dat_orig$YEAR==yr)
+  for(j in 9:26){
+    dat_sub[,j] <- as.numeric(dat_sub[,j])
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==0),j] <- mean(dat_sub[which(dat_sub$DEV==0),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==1),j] <- mean(dat_sub[which(dat_sub$DEV==1),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])),j] <- mean(dat_sub[,j],na.rm=T)
+  }
+  total_dat <- rbind(total_dat,dat_sub)
+}
+for(i in c(6,9:20, 22:26))
+  total_dat[,i] <- scale(as.numeric(total_dat[,i]))
+total_dat$YEAR <- total_dat_orig$YEAR-1989
+
+m1 <- lmer(logPPP~DEV*AF+RG+INV+ICTM+(YEAR+INV+ICTT+ICTM|Countrycode), 
+           data = total_dat,
+           na.action=na.omit)
+summary(m1)
+write.csv(summary(m1)$coeff[,c(1,5)],'D:/documents/2020lsemodules/dissertation/July/finalrandom_impute_mean.csv')
+
+# Impute by min
+total_dat <- c()
+for(yr in total_dat_orig$YEAR){
+  dat_sub <- subset(total_dat_orig, total_dat_orig$YEAR==yr)
+  for(j in 9:26){
+    dat_sub[,j] <- as.numeric(dat_sub[,j])
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==0),j] <- min(dat_sub[which(dat_sub$DEV==0),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==1),j] <- min(dat_sub[which(dat_sub$DEV==1),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])),j] <- min(dat_sub[,j],na.rm=T)
+    dat_sub[which(dat_sub[,j]==Inf),j] <- NA
+  }
+  total_dat <- rbind(total_dat,dat_sub)
+}
+
+# Redo previous analysis
+for(i in c(6,9:20, 22:26))
+  total_dat[,i] <- scale(total_dat[,i])
+total_dat$YEAR <- total_dat_orig$YEAR-1989
+total_dat <- total_dat[order(total_dat$Countrycode),]
+m2 <- lmer(logPPP~DEV*AF+RG+INV+ICTM+(YEAR+INV+ICTT+ICTM|Countrycode), 
+           data = total_dat,
+           na.action=na.omit,REML=F,
+           control = lmerControl(optimizer ="Nelder_Mead"))
+summary(m2)
+write.csv(summary(m2)$coeff[,c(1,5)],'D:/documents/2020lsemodules/dissertation/July/finalrandom_impute_min.csv')
+
+
+
+# Impute by max
+total_dat <- c()
+for(yr in total_dat_orig$YEAR){
+  dat_sub <- subset(total_dat_orig, total_dat_orig$YEAR==yr)
+  for(j in 9:26){
+    dat_sub[,j] <- as.numeric(dat_sub[,j])
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==0),j] <- max(dat_sub[which(dat_sub$DEV==0),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])&dat_sub$DEV==1),j] <- max(dat_sub[which(dat_sub$DEV==1),j],na.rm=T)
+    dat_sub[which(is.na(dat_sub[,j])),j] <- max(dat_sub[,j],na.rm=T)
+    dat_sub[which(dat_sub[,j]==-Inf),j] <- NA
+  }
+  total_dat <- rbind(total_dat,dat_sub)
+}
+
+# Redo previous analysis
+for(i in c(6,9:20, 22:26))
+  total_dat[,i] <- scale(total_dat[,i])
+total_dat$YEAR <- total_dat_orig$YEAR-1989
+total_dat <- total_dat[order(total_dat$Countrycode),]
+m3 <- lmer(logPPP~DEV*AF+RG+INV+ICTM+(YEAR+INV+ICTT+ICTM|Countrycode), 
+           data = total_dat,
+           na.action=na.omit,REML=F,
+           control = lmerControl(optimizer ="Nelder_Mead"))
+summary(m3)
+write.csv(summary(m3)$coeff[,c(1,5)],'D:/documents/2020lsemodules/dissertation/July/finalrandom_impute_max.csv')
+
+# Prediction plot
+total_dat <- total_dat_orig
+for(i in c(6,9:20, 22:26))
+  total_dat[,i] <- scale(as.numeric(total_dat_orig[,i]))
+total_dat$YEAR <- total_dat_orig$YEAR-1989
+
+predict<-c()
+YEAR<-1990:2020-1989
+for(cty in rownames(coef(l)[[1]])){
+  DEV <- subset(total_dat, total_dat$Countrycode==cty)$DEV[1]
+  cf <- coef(final)[[1]][which(rownames(coef(l)[[1]])==cty),]
+  PPP <- exp(cf$`(Intercept)`+ DEV*cf$DEV+cf$YEAR*YEAR)
+  predict <- rbind(predict, cbind(Countrycode=cty, YEAR=YEAR, PPP=PPP))
+}
+
+predict[,3] <- as.numeric(predict[,3])
+p <- ggplot(data = data.frame(predict), aes(x=as.numeric(YEAR)+1989, y=as.numeric(PPP), group=Countrycode)) +
+  geom_line(aes(color=Countrycode)) +
+  labs(x='Year', y='PPP')
+p
+```
+
+
+
