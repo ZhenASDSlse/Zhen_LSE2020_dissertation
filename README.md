@@ -10,4 +10,4 @@ And I tried to solve the problem of missing data by imputation (maximum,minimum,
 
 If you/your organization would like to use my codes and dataset for academic purpose, please remember to add the citation in your work.
 
-Liu, Z., 2020. R codes for the Zhen's LSE capstone project. London, United Kingdom: Github. https://github.com/ZhenASDSlse/Zhen_LSE2020_dissertation
+Liu, Z., 2020. R codes for Zhen's LSE capstone project. London, United Kingdom: Github. https://github.com/ZhenASDSlse/Zhen_LSE2020_dissertation
