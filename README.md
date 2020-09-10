@@ -6,3 +6,8 @@ APEC2020.Rmd includes all codes that I used.
 methodologies of my research includes: pooled OLS, interaction, instrumental variable, fixed-effect, random-effect, mixed-effect.
 
 And I tried to solve the problem of missing data by imputation (maximum,minimum,mean)
+
+
+If you/your organization would like to use my codes and dataset for academic purpose, please remember to add the citation in your work.
+
+Liu, Z., 2020. R codes for the Zhen's LSE capstone project. London, United Kingdom: Github. ttps://github.com/ZhenASDSlse/Zhen_LSE2020_dissertation
